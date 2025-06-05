@@ -1,5 +1,7 @@
 import jax
 import jax.numpy as jnp
+import matplotlib
+matplotlib.use('Agg')  # Use Agg backend for WSL
 import matplotlib.pyplot as plt 
 import pandas as pd
 
@@ -9,6 +11,9 @@ class AdalineGD:
         self.eta = eta
         self.n_iter = n_iter
         self.random_state = random_state
+        self.w_ = None
+        self.b_ = None
+        self.losses_ = []
 
     def fit(self, X: jnp.ndarray, y: jnp.ndarray):
         key = jax.random.PRNGKey(self.random_state)
@@ -36,7 +41,7 @@ class AdalineGD:
         return jnp.where(self.activation(self.net_input(X)) >= 0.5, 1, 0)
     
 if __name__ == "__main__":
-    fix, ax = plt.subplots(nrows=1, ncols=2, figsize=(8, 4))
+    _, ax = plt.subplots(nrows=1, ncols=2, figsize=(8, 4))
 
     df = pd.read_csv(
         "https://archive.ics.uci.edu/ml/machine-learning-databases/iris/iris.data",
@@ -51,8 +56,8 @@ if __name__ == "__main__":
     ada = AdalineGD(n_iter=15, eta=0.1).fit(X, y)
     ax[0].plot(range(1, len(ada.losses_) + 1), jnp.log(jnp.array(ada.losses_)), marker="o")
     ax[0].set_xlabel("Epochs")
-    ax[0].set_ylabel("Mean squared error")
-    ax[0].set_title("Adaline - Learning rate 0.01")
+    ax[0].set_ylabel("Log Mean squared error")
+    ax[0].set_title("Adaline - Learning rate 0.1")
 
     ada = AdalineGD(n_iter=15, eta=0.0001).fit(X, y)
     ax[1].plot(range(1, len(ada.losses_) + 1), ada.losses_, marker="o")
@@ -60,6 +65,6 @@ if __name__ == "__main__":
     ax[1].set_ylabel("Mean squared error")
     ax[1].set_title("Adaline - Learning rate 0.0001")
 
-    plt.show()
+    plt.tight_layout()
     plt.savefig("adaline_gd.png")
     plt.close()
