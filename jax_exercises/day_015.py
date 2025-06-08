@@ -63,46 +63,16 @@ def update(params, x, y, step_size):
     ]
 
 
-def mnist_get_train_batches(data_dir, batch_size=128):
-    ds = tfds.load("mnist", split="train", as_supervised=True, data_dir=data_dir)
+def mnist_get_train_batches(data_dir, variant="mnist", batch_size=128):
+    ds = tfds.load(name=variant, split="train", as_supervised=True, data_dir=data_dir)
     ds = ds.batch(batch_size, drop_remainder=False).prefetch(1)
     return tfds.as_numpy(ds)
 
 
-if __name__ == "__main__":
-    layer_sizes = [784, 512, 512, 10]
-    step_size = 0.01
-    num_epochs = 10
-    batch_size = 128
-    n_targets = 10
-
-    key = jax.random.key(DEFAULT_SEED)
-    params = init_network_params(layer_sizes, jax.random.key(DEFAULT_SEED))
-
-    # Print device information
-    print("Available devices:", jax.devices())
-    print("Default backend:", jax.default_backend())
-    print("Current device:", jax.devices()[0])
-
-    # works on single example
-    random_flattened_image = jax.random.normal(key, (784,))
-    preds = predict(params, random_flattened_image)
-    print(preds)
-
-    random_flattened_batch = jax.random.normal(key, (batch_size, 784))
-    try:
-        preds = predict(params, random_flattened_batch)
-    except TypeError as e:
-        print(f"Invalid shape: {e}")
-
-    batched_predict = jax.vmap(predict, in_axes=(None, 0))
-    preds = batched_predict(params, random_flattened_batch)
-    print(f"Works on batch: {preds.shape}")
-
-    data_dir = "/tmp/datasets/"
+def run_mnist(variant, params, step_size, num_epochs, data_dir):
 
     mnist_data, info = tfds.load(
-        name="mnist", batch_size=-1, data_dir=data_dir, with_info=True
+        name=variant, batch_size=-1, data_dir=data_dir, with_info=True
     )
     print(info)
 
@@ -129,7 +99,7 @@ if __name__ == "__main__":
 
     # train
     for epoch in range(num_epochs):
-        for x, y in mnist_get_train_batches(data_dir):
+        for x, y in mnist_get_train_batches(data_dir, variant=variant):
             x = jnp.reshape(x, (x.shape[0], num_pixels))
             y = one_hot(y, num_labels)
             params = update(params, x, y, step_size)
@@ -139,3 +109,38 @@ if __name__ == "__main__":
         print(
             f"Epoch {epoch}: Train accuracy: {train_acc:.4f}, Test accuracy: {test_acc:.4f}"
         )
+
+if __name__ == "__main__":
+    # Deeper network with more capacity
+    layer_sizes = [784, 256, 256, 10]
+    # Lower learning rate for better stability
+    step_size = 0.01
+    num_epochs = 20  # More epochs to learn complex patterns
+    batch_size = 128
+    n_targets = 10
+    data_dir = "/tmp/datasets/"
+
+    key = jax.random.key(DEFAULT_SEED)
+    params = init_network_params(layer_sizes, jax.random.key(DEFAULT_SEED))
+
+    # Print device information
+    print("Available devices:", jax.devices())
+    print("Default backend:", jax.default_backend())
+    print("Current device:", jax.devices()[0])
+
+    # works on single example
+    random_flattened_image = jax.random.normal(key, (784,))
+    preds = predict(params, random_flattened_image)
+    print(preds)
+
+    random_flattened_batch = jax.random.normal(key, (batch_size, 784))
+    try:
+        preds = predict(params, random_flattened_batch)
+    except TypeError as e:
+        print(f"Invalid shape: {e}")
+
+    batched_predict = jax.vmap(predict, in_axes=(None, 0))
+    preds = batched_predict(params, random_flattened_batch)
+    print(f"Works on batch: {preds.shape}")
+
+    run_mnist("fashion_ mnist", params, step_size=0.01, num_epochs=num_epochs, data_dir=data_dir)
