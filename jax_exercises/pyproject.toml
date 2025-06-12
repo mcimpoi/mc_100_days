@@ -9,6 +9,7 @@ dependencies = [
     "jupyter>=1.1.1",
     "matplotlib>=3.10.3",
     "pandas>=2.2.3",
+    "scikit-learn>=1.7.0",
     "tensorflow>=2.19.0",
     "tensorflow-datasets>=4.9.9",
     "tqdm>=4.67.1",
