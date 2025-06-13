@@ -26,7 +26,7 @@ class AdalineSGD:
             if self.shuffle:
                 X, y = self._shuffle(X, y)
             losses = []
-            for xi, target in zip(X, y):
+            for xi, target in tqdm(zip(X, y)):
                 losses.append(self._update_weights(xi, target))
                 avg_loss = jnp.mean(jnp.array(losses))
                 self.losses_.append(avg_loss)
@@ -83,7 +83,6 @@ if __name__ == "__main__":
 
     # Initialize and train the model
     model = AdalineSGD(learning_rate=0.01, n_iterations=10, random_state=42)
-    
     model.fit(X_train_jax, y_train_jax)
 
     # Make predictions
