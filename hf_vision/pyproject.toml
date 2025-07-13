@@ -1,0 +1,11 @@
+[project]
+name = "hf-vision"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "accelerate>=1.8.1",
+    "bitsandbytes>=0.46.0",
+    "pillow>=11.2.1",
+    "torch>=2.7.1",
+    "transformers>=4.53.0",
+]
