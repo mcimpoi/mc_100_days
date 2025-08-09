@@ -18,7 +18,7 @@ def plot_images(
     n_cols = len(images[0]) + (1 if original_images is not None else 0)
     print(f"{n_rows=}, {n_cols=}")
 
-    fig, axs = plt.subplots(
+    _, axs = plt.subplots(
         figsize=(n_cols * 5, n_rows * 5), nrows=n_rows, ncols=n_cols, squeeze=False
     )
 
