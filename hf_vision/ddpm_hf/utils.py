@@ -3,6 +3,8 @@ import numpy as np
 from torchvision import transforms
 import torch.nn.functional as F
 
+from inspect import isfunction
+from tqdm.auto import tqdm
 from datasets import load_dataset
 
 IMAGE_SIZE: int = 128
@@ -27,6 +29,11 @@ reverse_tensor_transform = transforms.Compose(
     ]
 )
 
+def default(val, d):
+    if val is not None:
+        return val
+    # TODO: would callable wor / better here?
+    return d() if isfunction(d) else d
 
 def linear_beta_schedule(
     timesteps: int, beta_start: float = 0.0001, beta_end: float = 0.02
@@ -38,6 +45,13 @@ def quadratic_beta_schedule(
     timesteps: int, beta_start: float = 0.0001, beta_end: float = 0.02
 ) -> torch.Tensor:
     return torch.linspace(beta_start**0.5, beta_end**0.5, timesteps) ** 2
+
+
+def sigmoid_beta_schedule(
+    timesteps: int, beta_start: float = 0.0001, beta_end: float = 0.02
+) -> torch.Tensor:
+    betas = torch.linspace(-6, 6, timesteps)
+    return torch.sigmoid(betas) * (beta_end - beta_start) + beta_start
 
 
 def extract(a, t, x_shape):
@@ -99,10 +113,12 @@ def get_fashion_mnist_dataloader(batch_size: int = 128) -> torch.utils.data.Data
     )
 
     def transforms_fn(examples: dict) -> dict:
-        examples["pixel_values"] = [transform(image.convert("L")) for image in examples["image"]]
+        examples["pixel_values"] = [
+            transform(image.convert("L")) for image in examples["image"]
+        ]
         del examples["image"]
         return examples
-    
+
     dataset = load_dataset("fashion_mnist")
     transformed_dataset = dataset.with_transform(transforms_fn).remove_columns("label")
     dataloader = torch.utils.data.DataLoader(
@@ -112,4 +128,45 @@ def get_fashion_mnist_dataloader(batch_size: int = 128) -> torch.utils.data.Data
     )
 
     return dataloader
+
+@torch.no_grad()
+def p_sample(model, x, t, t_index, alpha_beta_params):
+    betas = alpha_beta_params["betas"]
+    sqrt_one_minus_alphas_cumprod = alpha_beta_params["sqrt_one_minus_alphas_cumprod"]
+    sqrt_reciprocal_alphas = alpha_beta_params["sqrt_reciprocal_alphas"]
+
+    betas_t = extract(betas, t, x.shape)
+    sqrt_one_minus_alphas_cumprod_t = extract(sqrt_one_minus_alphas_cumprod, t, x.shape)
+    sqrt_reciprocal_alphas_t = extract(sqrt_reciprocal_alphas, t, x.shape)
+
+    model_mean = sqrt_reciprocal_alphas_t * (
+        x - betas_t * model(x, t) / sqrt_one_minus_alphas_cumprod_t
+    )
+
+    if t_index == 0:
+        return model_mean
     
+    posterior_variance_t = extract(
+        alpha_beta_params["posterior_variance"], t, x.shape
+    )
+    noise = torch.randn_like(x)
+    return model_mean + torch.sqrt(posterior_variance_t) * noise
+
+
+@torch.no_grad()
+def p_sample_loop(model, shape, timesteps, alpha_beta_params):
+    device = next(model.parameters()).device
+    
+    b = shape[0]
+    img = torch.randn(shape, device=device)
+    images = []
+
+    for i in tqdm(range(timesteps, 0, -1), desc="sampling loop time step", total=timesteps):
+        img = p_sample(model, img, torch.full((b, ), i, device=device, dtype=torch.long), i, alpha_beta_params)
+        images.append(img.cpu().numpy())
+    
+    return images
+
+# @torch.no_grad()
+# def sample(model, image_size, batch_size=16, channels=3):
+#     return p_sample_loop()
